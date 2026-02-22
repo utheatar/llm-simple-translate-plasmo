@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"D:/codesaves/frontend/browseraddon/llm-simple-translate-plasmo\" && pnpm packageb 2>&1)",
+      "Bash(echo dir not found:*)",
+      "Bash(cd \"D:/codesaves/frontend/browseraddon/llm-simple-translate-plasmo\" && pnpm build 2>&1)",
+      "Bash(tail:*)"
+    ]
+  }
+}

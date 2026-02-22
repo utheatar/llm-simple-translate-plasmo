@@ -29,7 +29,7 @@ const buildUserPrompt = (template: string, targetLang: string, text: string): st
 }
 
 const handler: PlasmoMessaging.PortHandler<TranslateRequestBody, TranslateResponseBody> = async (req, res) => {
-    const { text, sourceLang, targetLang, signal } = req.body
+    const { text, sourceLang, targetLang, trigger, signal } = req.body
     if (!text) return
 
     try {
@@ -64,9 +64,20 @@ const handler: PlasmoMessaging.PortHandler<TranslateRequestBody, TranslateRespon
         }
 
         let finalTarget = targetLang
-        // 处理自动互译 (Auto Swap): 如果检测到的源语言 等于 首选目标语言，且开启了互译 -> 切换到第二目标语言
-        if (settings.autoSwapLang && detectedSource === settings.targetLang1) {
-            finalTarget = settings.targetLang2
+        if (settings.autoSwapLang) {
+            if (trigger === 'popup') {
+                // Popup 中：仅当输入语言、目标语言、首选语言三者相同时才互译。
+                // 用户熟悉自己的母语，不需要把母语翻译成母语；
+                // 但如果用户明确选择了不同的目标语言（如日语），则尊重用户选择。
+                if (detectedSource === settings.targetLang1 && targetLang === settings.targetLang1) {
+                    finalTarget = settings.targetLang2
+                }
+            } else {
+                // 划词翻译：只要检测到输入语言是首选语言，就切换到第二语言
+                if (detectedSource === settings.targetLang1) {
+                    finalTarget = settings.targetLang2
+                }
+            }
         }
 
         console.log(`[Translate] Lang: ${detectedSource} -> ${finalTarget}`)
@@ -102,7 +113,7 @@ const handler: PlasmoMessaging.PortHandler<TranslateRequestBody, TranslateRespon
             try {
                 console.log(`[Translate] Trying API: ${api.name}`)
                 const promptConfig = settings.prompts.find(p => p.id === api.promptId) || settings.prompts[0]
-                const systemPrompt = buildSystemPrompt(promptConfig.content, targetLang)
+                const systemPrompt = buildSystemPrompt(promptConfig.content, finalTarget)
                 const userPrompt = buildUserPrompt(
                     `Translate to {{to}} (output translation only):\n\n{{text}}`,
                     finalTarget,
@@ -185,9 +196,9 @@ const handler: PlasmoMessaging.PortHandler<TranslateRequestBody, TranslateRespon
             fullText: fullTranslation
         })
 
-        // 保存历史记录
+        // 保存历史记录：使用 detectedSource 和 finalTarget，确保与缓存命中逻辑一致
         if (fullTranslation.trim()) {
-            await saveHistory(text, fullTranslation, sourceLang, targetLang, activeApiId)
+            await saveHistory(text, fullTranslation, detectedSource, finalTarget, activeApiId)
         }
 
     } catch (err: any) {

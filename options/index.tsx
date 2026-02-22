@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Settings, Server, MessageSquare, MousePointer2, Info, Sliders, Database } from "lucide-react"
+import { useAppSettings } from "~lib/storage"
 import { GeneralSettings } from "./sections/GeneralSettings"
 import { ApiSettings } from "./sections/ApiSettings"
 import { PromptSettings } from "./sections/PromptSettings"
@@ -11,6 +12,28 @@ import packageJson from "~package.json"
 
 function OptionsIndex() {
     const [activeTab, setActiveTab] = useState("general")
+    const [settings] = useAppSettings()
+
+    // 根据 theme 设置，将 dark class 应用到 html 元素
+    useEffect(() => {
+        if (!settings) return
+        const root = document.documentElement
+        const applyTheme = () => {
+            if (settings.theme === 'dark') {
+                root.classList.add('dark')
+            } else if (settings.theme === 'light') {
+                root.classList.remove('dark')
+            } else {
+                root.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches)
+            }
+        }
+        applyTheme()
+        if (settings.theme === 'system') {
+            const mq = window.matchMedia('(prefers-color-scheme: dark)')
+            mq.addEventListener('change', applyTheme)
+            return () => mq.removeEventListener('change', applyTheme)
+        }
+    }, [settings?.theme])
 
     const renderContent = () => {
         switch (activeTab) {

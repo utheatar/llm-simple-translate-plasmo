@@ -71,8 +71,8 @@ export const GeneralSettings = () => {
                             key={opt.val}
                             onClick={() => setSettings({ ...settings, theme: opt.val as any })}
                             className={`flex flex-col items-center justify-center gap-3 p-4 rounded-xl border transition-all ${settings.theme === opt.val
-                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600'
+                                ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                                : 'border-border hover:border-border/80 hover:bg-muted text-muted-foreground'
                                 }`}
                         >
                             <opt.icon size={24} />
@@ -82,7 +82,7 @@ export const GeneralSettings = () => {
                 </div>
             </section>
 
-            <hr className="border-gray-100" />
+            <hr className="border-border" />
 
             {/* 3. API 策略 */}
             <section>

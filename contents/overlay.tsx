@@ -38,25 +38,35 @@ const calcIconPosition = (mouseX: number, mouseY: number, offsetX: number, offse
     }
 }
 
-const calcPanelPosition = (rect: DOMRect, mode: 'top' | 'bottom'): Position => {
+const calcPanelPosition = (rect: DOMRect, mode: 'top' | 'bottom', panelWidth: number, panelHeight: number): Position => {
     const scrollX = window.scrollX
     const scrollY = window.scrollY
+    const viewW = window.innerWidth
+    const viewH = window.innerHeight
 
-    // 简单的居中计算
-    // rect.left 是相对于视口的
-    const x = rect.left + scrollX
+    let x = rect.left + scrollX
     let y = 0
 
     if (mode === 'top') {
-        y = rect.top + scrollY - 10
+        y = rect.top + scrollY - panelHeight - 10
     } else {
         y = rect.bottom + scrollY + 10
     }
 
-    return {
-        x: Math.max(10, x),
-        y: Math.max(10, y)
+    // 水平夹紧：不超出右边缘
+    x = Math.max(10 + scrollX, Math.min(x, scrollX + viewW - panelWidth - 10))
+
+    // 垂直夹紧：如果超出顶部，翻到文本下方；如果超出底部，翻到文本上方
+    if (y < scrollY + 10) {
+        y = rect.bottom + scrollY + 10
     }
+    if (y + panelHeight > scrollY + viewH - 10) {
+        y = rect.top + scrollY - panelHeight - 10
+    }
+    // 最终保底
+    y = Math.max(scrollY + 10, y)
+
+    return { x, y }
 }
 
 // --- 3. 主组件 ---
@@ -73,6 +83,7 @@ const PlasmoOverlay = () => {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [apiName, setApiName] = useState<string | null>(null)
+    const [showSource, setShowSource] = useState(false)
 
     // 拖拽相关
     const [isDragging, setIsDragging] = useState(false)
@@ -166,7 +177,7 @@ const PlasmoOverlay = () => {
                 } else if (settings.selectionMode === 'panel') {
                     const range = selection.getRangeAt(0)
                     const rect = range.getBoundingClientRect()
-                    const panelPos = calcPanelPosition(rect, settings.panelInitialPos)
+                    const panelPos = calcPanelPosition(rect, settings.panelInitialPos, settings.panelWidth, settings.panelHeight)
                     setPos(panelPos)
                     setUiState('panel')
                     doTranslate(text)
@@ -198,11 +209,13 @@ const PlasmoOverlay = () => {
         setError(null)
         setApiName(null)
         setIsLoading(true)
+        setShowSource(false)
 
         translatePort.send({
             text,
             sourceLang: "auto",
             targetLang: settings.targetLang1,
+            trigger: 'selection',
         })
     }
 
@@ -359,6 +372,16 @@ const PlasmoOverlay = () => {
 
                     {/* Content */}
                     <div className="flex-1 p-4 overflow-y-auto max-h-[400px] relative">
+                        {/* 原文（可折叠，点击展开/收起） */}
+                        <div
+                            className="mb-3 pb-2 border-b border-gray-100 dark:border-zinc-800 cursor-pointer group/src"
+                            onClick={() => setShowSource(v => !v)}
+                            title={showSource ? "点击折叠原文" : "点击展开原文"}
+                        >
+                            <p className={`text-xs text-gray-400 dark:text-gray-500 leading-relaxed select-none ${showSource ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+                                {selectedText}
+                            </p>
+                        </div>
                         {error ? (
                             <div className="text-red-600 dark:text-red-400 text-sm p-3 bg-red-50 dark:bg-red-900/10 rounded border border-red-100 dark:border-red-900/20">
                                 {error}

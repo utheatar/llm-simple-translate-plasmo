@@ -7,18 +7,20 @@ import { usePort } from "@plasmohq/messaging/hook"
 import "~style.css"
 
 function Popup() {
-  const [settings] = useAppSettings()
+  const [settings, setSettings] = useAppSettings()
 
   // UI State
   const [inputText, setInputText] = useState("")
   const [outputText, setOutputText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [sourceLang, setSourceLang] = useState("auto")
-  const [targetLang, setTargetLang] = useState("en")
+  const [targetLang, setTargetLang] = useState("zh-CN")
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [usedApiName, setUsedApiName] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+  // 目标语言仅在首次加载时从存储初始化，后续不跟随 settings 变化重置
+  const targetLangInitialized = useRef(false)
   // 防抖 Timer
   const debounceTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -52,10 +54,42 @@ function Popup() {
     }
   }, [mailPort.data])
 
-  // 初始化目标语言
+  // 根据 theme 设置，将 dark class 应用到 html 元素
   useEffect(() => {
-    if (settings) setTargetLang(settings.targetLang1)
+    if (!settings) return
+    const root = document.documentElement
+    const applyTheme = () => {
+      if (settings.theme === 'dark') {
+        root.classList.add('dark')
+      } else if (settings.theme === 'light') {
+        root.classList.remove('dark')
+      } else {
+        root.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches)
+      }
+    }
+    applyTheme()
+    if (settings.theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      mq.addEventListener('change', applyTheme)
+      return () => mq.removeEventListener('change', applyTheme)
+    }
+  }, [settings?.theme])
+
+  // 初始化目标语言：仅首次加载时从存储读取，不随后续 settings 更新而重置
+  useEffect(() => {
+    if (settings && !targetLangInitialized.current) {
+      targetLangInitialized.current = true
+      setTargetLang(settings.popupLastTargetLang || settings.targetLang1)
+    }
   }, [settings])
+
+  // 修改目标语言：同时持久化到存储，确保跨 popup 开关会话保持
+  const handleTargetLangChange = (lang: string) => {
+    setTargetLang(lang)
+    if (settings) {
+      setSettings({ ...settings, popupLastTargetLang: lang })
+    }
+  }
 
   // 3. 发送请求
   const doTranslate = (text: string) => {
@@ -71,7 +105,8 @@ function Popup() {
     mailPort.send({
       text,
       sourceLang,
-      targetLang
+      targetLang,
+      trigger: 'popup'
     })
   }
 
@@ -110,9 +145,9 @@ function Popup() {
 
   const swapLanguages = () => {
     if (sourceLang === 'auto') return
-    const temp = sourceLang
+    const prevSource = sourceLang
     setSourceLang(targetLang)
-    setTargetLang(temp)
+    handleTargetLangChange(prevSource)
   }
 
   if (!settings) return <div className="p-4">Loading settings...</div>
@@ -147,7 +182,7 @@ function Popup() {
 
         <select
           value={targetLang}
-          onChange={(e) => setTargetLang(e.target.value)}
+          onChange={(e) => handleTargetLangChange(e.target.value)}
           className="bg-transparent text-sm font-medium text-primary py-1 px-2 rounded hover:bg-muted focus:outline-none max-w-[120px] text-right"
         >
           {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
