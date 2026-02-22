@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from "react"
 import { Settings, ArrowRightLeft, Sparkles, XCircle, Copy, Check } from "lucide-react"
-import { useAppSettings } from "~lib/storage"
+import { useAppSettings, storage } from "~lib/storage"
 import { LANGUAGES, type TranslateRequestBody, type TranslateResponseBody } from "~lib/types"
 import ReactMarkdown from "react-markdown"
 import { usePort } from "@plasmohq/messaging/hook"
 import "~style.css"
 
+// popup 目标语言单独存为独立 key，与 app-settings 完全隔离，避免并发写竞争
+const POPUP_TARGET_LANG_KEY = "popup-target-lang"
+
 function Popup() {
-  const [settings, setSettings] = useAppSettings()
+  const [settings] = useAppSettings()
 
   // UI State
   const [inputText, setInputText] = useState("")
@@ -75,20 +78,20 @@ function Popup() {
     }
   }, [settings?.theme])
 
-  // 初始化目标语言：仅首次加载时从存储读取，不随后续 settings 更新而重置
+  // 初始化目标语言：从独立 storage key 读取，避免与 app-settings 的并发写产生竞争
   useEffect(() => {
     if (settings && !targetLangInitialized.current) {
       targetLangInitialized.current = true
-      setTargetLang(settings.popupLastTargetLang || settings.targetLang1)
+      storage.get<string>(POPUP_TARGET_LANG_KEY).then(saved => {
+        setTargetLang(saved || settings.targetLang1)
+      })
     }
   }, [settings])
 
-  // 修改目标语言：同时持久化到存储，确保跨 popup 开关会话保持
+  // 修改目标语言：直接写入独立 storage key
   const handleTargetLangChange = (lang: string) => {
     setTargetLang(lang)
-    if (settings) {
-      setSettings({ ...settings, popupLastTargetLang: lang })
-    }
+    storage.set(POPUP_TARGET_LANG_KEY, lang)
   }
 
   // 3. 发送请求

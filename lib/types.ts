@@ -62,7 +62,6 @@ export interface AppSettings {
     // Popup 设置
     popupAutoTranslate: boolean;
     popupDebounceTime: number;
-    popupLastTargetLang?: string; // 记住 Popup 上次选择的目标语言，持久化跨会话
 
     // history
     history: TranslationHistoryItem[];
